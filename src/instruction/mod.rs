@@ -28,11 +28,27 @@ pub struct Create {
 
 impl Create {
     pub fn data(&self) -> Vec<u8> {
-        let mut data = Vec::with_capacity(8 + 8 + 8);
-        data.extend_from_slice(&[24, 30, 200, 40, 5, 28, 7, 119]); // discriminator
-        data.extend_from_slice(&self._name.as_bytes());
-        data.extend_from_slice(&self._symbol.as_bytes());
-        data.extend_from_slice(&self._uri.as_bytes());
+        // Calculate exact capacity needed
+        let total_size = 8 + // discriminator
+                        4 + self._name.len() +    // length prefix + name
+                        4 + self._symbol.len() +  // length prefix + symbol
+                        4 + self._uri.len(); // length prefix + uri
+
+        let mut data = Vec::with_capacity(total_size);
+
+        // Add discriminator
+        data.extend_from_slice(&[24, 30, 200, 40, 5, 28, 7, 119]);
+
+        // Add length-prefixed strings
+        data.extend_from_slice(&(self._name.len() as u32).to_le_bytes());
+        data.extend_from_slice(self._name.as_bytes());
+
+        data.extend_from_slice(&(self._symbol.len() as u32).to_le_bytes());
+        data.extend_from_slice(self._symbol.as_bytes());
+
+        data.extend_from_slice(&(self._uri.len() as u32).to_le_bytes());
+        data.extend_from_slice(self._uri.as_bytes());
+
         data
     }
 }
@@ -66,7 +82,6 @@ impl Sell {
         data
     }
 }
-
 
 /// Creates an instruction to create a new token with bonding curve
 ///
@@ -124,12 +139,7 @@ pub fn create(payer: &Keypair, mint: &Keypair, args: Create) -> Instruction {
 /// # Returns
 ///
 /// Returns a Solana instruction that when executed will buy tokens from the bonding curve
-pub fn buy(
-    payer: &Keypair,
-    mint: &Pubkey,
-    fee_recipient: &Pubkey,
-    args: Buy,
-) -> Instruction {
+pub fn buy(payer: &Keypair, mint: &Pubkey, fee_recipient: &Pubkey, args: Buy) -> Instruction {
     let bonding_curve: Pubkey = PumpFun::get_bonding_curve_pda(mint).unwrap();
     Instruction::new_with_bytes(
         constants::accounts::PUMPFUN,
@@ -167,12 +177,7 @@ pub fn buy(
 /// # Returns
 ///
 /// Returns a Solana instruction that when executed will sell tokens to the bonding curve
-pub fn sell(
-    payer: &Keypair,
-    mint: &Pubkey,
-    fee_recipient: &Pubkey,
-    args: Sell,
-) -> Instruction {
+pub fn sell(payer: &Keypair, mint: &Pubkey, fee_recipient: &Pubkey, args: Sell) -> Instruction {
     let bonding_curve: Pubkey = PumpFun::get_bonding_curve_pda(mint).unwrap();
     Instruction::new_with_bytes(
         constants::accounts::PUMPFUN,
